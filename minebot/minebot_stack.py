@@ -12,8 +12,12 @@ class MinebotStack(core.Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # setup networking
-        mc_vpc = ec2.Vpc(self, "minecraft-vpc", max_azs=2)
-        mc_cluster = ecs.Cluster(self, "MinecraftCluster", vpc=mc_vpc)
+        mc_vpc = ec2.Vpc(self, "minecraft-vpc", 
+                        max_azs=2, # 2 is enough
+                        nat_gateways=0, # don't want any NAT gateways
+                        subnet_configuration=[ # public subnets only, don't need private
+                            ec2.SubnetConfiguration(name="minecraft-pub", subnet_type=ec2.SubnetType.PUBLIC)
+                        ])
         mc_sg = ec2.SecurityGroup(self, 'minecraft-sg', 
             vpc=mc_vpc,
             allow_all_outbound=True,
@@ -76,4 +80,15 @@ class MinebotStack(core.Stack):
                                         container_path="/data", 
                                         source_volume=mc_volume.name, 
                                         read_only=False)
+        )
+
+        # create a service with 0 instances
+        mc_cluster = ecs.Cluster(self, "MinecraftCluster", vpc=mc_vpc)
+        mc_service = ecs.FargateService(self, "minecraft-service", 
+                                    cluster=mc_cluster, 
+                                    task_definition=minecraft,
+                                    assign_public_ip=True,
+                                    desired_count=0,
+                                    security_group=mc_sg,
+                                    platform_version=ecs.FargatePlatformVersion.VERSION1_4
         )
