@@ -11,13 +11,8 @@ class MinebotStack(core.Stack):
     def __init__(self, scope: core.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # setup networking
-        mc_vpc = ec2.Vpc(self, "minecraft-vpc", 
-                        max_azs=2, # 2 is enough
-                        nat_gateways=0, # don't want any NAT gateways
-                        subnet_configuration=[ # public subnets only, don't need private
-                            ec2.SubnetConfiguration(name="minecraft-pub", subnet_type=ec2.SubnetType.PUBLIC)
-                        ])
+        # setup networking using default VPC
+        mc_vpc = ec2.Vpc.from_lookup(self, "VPC", is_default=True)
         mc_sg = ec2.SecurityGroup(self, 'minecraft-sg', 
             vpc=mc_vpc,
             allow_all_outbound=True,
@@ -44,7 +39,7 @@ class MinebotStack(core.Stack):
         mc_volume = ecs.Volume(
             name="cats-in-bread",
             efs_volume_configuration=ecs.EfsVolumeConfiguration(
-                file_system_id=fs.file_system_id, 
+                file_system_id=fs.file_system_id #, 
                 # root_directory="/cats_in_bread"
             )
         )

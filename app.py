@@ -6,6 +6,7 @@ from minebot.minebot_stack import MinebotStack
 
 
 app = core.App()
-MinebotStack(app, "minebot")
+env_sydney = core.Environment(account="964583318248", region="ap-southeast-2")
+MinebotStack(app, "minebot", env=env_sydney)
 
 app.synth()
