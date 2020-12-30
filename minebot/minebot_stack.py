@@ -71,16 +71,17 @@ class MinebotStack(core.Stack):
 
     def create_task(self, name, guild, operator):
         # define an ECS task
+        volume = self.create_efs_volume(name)
         task = ecs.FargateTaskDefinition(self, name, 
             cpu=1024, 
             memory_limit_mib=2048,
-            volumes=[self.create_efs_volume(name)]
+            volumes=[volume]
         )
         core.Tags.of(task).add("guild", guild)
-        self.create_container(name, task, operator)
+        self.create_container(name, task, operator, volume)
         return task
 
-    def create_container(self, name, task, operator):
+    def create_container(self, name, task, operator, volume):
         # define the minecraft container
         container = task.add_container(
             name,
@@ -100,6 +101,10 @@ class MinebotStack(core.Stack):
             )
         )
         container.add_port_mappings(ecs.PortMapping(container_port=25565))
+        container.add_mount_points(ecs.MountPoint(
+                                    container_path="/data", 
+                                    source_volume=volume.name, 
+                                    read_only=False))
         return container
 
     #
