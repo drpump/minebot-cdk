@@ -64,6 +64,7 @@ class MinebotStack(core.Stack):
                                     assign_public_ip=True,
                                     desired_count=0,
                                     security_group=self.minecraft_sg,
+                                    propagate_tags=ecs.PropagatedTagSource.SERVICE,
                                     platform_version=ecs.FargatePlatformVersion.VERSION1_4)
         core.Tags.of(service).add("guild", guild)
         return service
