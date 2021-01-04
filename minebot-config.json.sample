@@ -1,0 +1,12 @@
+[
+  {
+    "id": "0123456789",
+    "name": "my-deadly-friends",
+    "ops": "My_deadly_op, My_deadly_op_too"
+  },
+  {
+    "id": "9876543210",
+    "name": "my-deadly-family",
+    "ops": "My_deadly_op"
+  }
+]

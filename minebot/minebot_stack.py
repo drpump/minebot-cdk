@@ -3,9 +3,10 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_logs as logs,
     aws_ec2 as ec2,
-    aws_efs as efs
+    aws_efs as efs,
+    aws_iam as iam
 )
-
+import json, os
 class MinebotStack(core.Stack):
 
     def __init__(self, scope: core.Construct, construct_id: str, **kwargs) -> None:
@@ -14,15 +15,29 @@ class MinebotStack(core.Stack):
         # setup networking using default VPC
         self.vpc = ec2.Vpc.from_lookup(self, "VPC", is_default=True)
         self.init_sec_groups()
+        self.init_bot_group()
 
         # create cluster to hold instances (with Fargate this is more-or-less meaningless)
         self.cluster = ecs.Cluster(self, "MinecraftCluster", vpc=self.vpc)
 
-        operator = 'Akemos_with_no_Q'
-        name = 'cats-in-bread'
-        guild = '786042802630950984'
-        self.create_service(name, guild, operator, self.cluster)
+        # create ECS services for the specified guilds
+        for guild in self.load_config():
+            self.create_service(guild['name'], guild['id'], guild['ops'])
 
+    #
+    # Open 
+    #
+    def load_config(self):
+        if "MINEBOT_CONFIG" in os.environ:
+            with open(os.environ["MINEBOT_CONFIG"], "r") as conf_file:
+                conf = json.load(conf_file)
+                if type(conf) is list and len(conf) > 0:
+                    return conf
+                else:
+                    print(f"Conf type: {type(conf).__name__} length: {str(len(conf))}, content: {str(conf)}")
+                    raise Exception('Expected json list of discord guilds in file identified by MINEBOT_CONFIG. Invalid or empty list detected')
+        else: 
+            raise Exception('Requires environment variable MINEBOT_CONFIG to identify config file')
 
     #
     # Create security groups required for servers and an ssh utility container
@@ -53,23 +68,42 @@ class MinebotStack(core.Stack):
         return sec_group
 
     #
-    # Create a service with zero instances for the identified task (we'll start it on demand)
+    # Create an IAM group with associated policy for the bot to access start/stop/state in ECS
     #
-    # Service will be tagged with the guild id so we can find it later
+    def init_bot_group(self):
+        statement = iam.PolicyStatement(effect = iam.Effect.ALLOW)
+        statement.add_actions("ecs:ListClusters", 
+                              "ecs:ListServices", 
+                              "ecs:DescribeServices", 
+                              "ecs:ListTasks", 
+                              "ecs:DescribeTasks", 
+                              "ecs:UpdateService",
+                              "ec2:DescribeNetworkInterfaces")
+        statement.add_all_resources()
+        group = iam.Group(self, "minebot-group")
+        group.add_managed_policy(iam.ManagedPolicy(self, "minebot-start-stop-policy", statements=[statement]))
+        return group
+
     #
-    def create_service(self, name, guild, operator, cluster):
+    # Create a service for the guild with zero instances (we'll start it on demand)
+    #
+    def create_service(self, name, guild, operators):
         service = ecs.FargateService(self, name + "-service", 
                                     cluster=self.cluster, 
-                                    task_definition=self.create_task(name, guild, operator),
+                                    task_definition=self.create_task(name, guild, operators),
                                     assign_public_ip=True,
                                     desired_count=0,
                                     security_group=self.minecraft_sg,
                                     propagate_tags=ecs.PropagatedTagSource.SERVICE,
                                     platform_version=ecs.FargatePlatformVersion.VERSION1_4)
+        # guild tag allows us to find it easily for stop/start
         core.Tags.of(service).add("guild", guild)
         return service
 
-    def create_task(self, name, guild, operator):
+    #
+    # Create an ECS task for the specified guild
+    #
+    def create_task(self, name, guild, operators):
         # define an ECS task
         volume = self.create_efs_volume(name)
         task = ecs.FargateTaskDefinition(self, name, 
@@ -78,18 +112,20 @@ class MinebotStack(core.Stack):
             volumes=[volume]
         )
         core.Tags.of(task).add("guild", guild)
-        self.create_container(name, task, operator, volume)
+        self.create_container(name, task, operators, volume)
         return task
 
-    def create_container(self, name, task, operator, volume):
-        # define the minecraft container
+    #
+    # Create a container for our minecraft image with mount point for the specified volume
+    #
+    def create_container(self, name, task, operators, volume):
         container = task.add_container(
             name,
             image=ecs.ContainerImage.from_registry("itzg/minecraft-server"),
             essential=True,
             environment={
                 "EULA": "TRUE", 
-                "OPS": operator,
+                "OPS": operators,
                 "ALLOW_NETHER": "true",
                 "ENABLE_COMMAND_BLOCK": "true",
                 "MAX_TICK_TIME": "60000",
