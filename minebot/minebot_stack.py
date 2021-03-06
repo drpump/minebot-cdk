@@ -107,8 +107,8 @@ class MinebotStack(core.Stack):
         # define an ECS task
         volume = self.create_efs_volume(name)
         task = ecs.FargateTaskDefinition(self, name, 
-            cpu=1024, 
-            memory_limit_mib=2048,
+            cpu=2048, 
+            memory_limit_mib=4096,
             volumes=[volume]
         )
         core.Tags.of(task).add("guild", guild)
@@ -129,7 +129,7 @@ class MinebotStack(core.Stack):
                 "ALLOW_NETHER": "true",
                 "ENABLE_COMMAND_BLOCK": "true",
                 "MAX_TICK_TIME": "60000",
-                "MAX_MEMORY": "1600M",
+                "MAX_MEMORY": "3600M",
                 "TYPE": type
             },
             logging=ecs.LogDrivers.aws_logs(
