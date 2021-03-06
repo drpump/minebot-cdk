@@ -2,11 +2,13 @@
   {
     "id": "0123456789",
     "name": "my-deadly-friends",
-    "ops": "My_deadly_op, My_deadly_op_too"
+    "ops": "My_deadly_op, My_deadly_op_too",
+    "type": "FABRIC"
   },
   {
     "id": "9876543210",
     "name": "my-deadly-family",
-    "ops": "My_deadly_op"
+    "ops": "My_deadly_op",
+    "type": "VANILLA"
   }
 ]

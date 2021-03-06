@@ -22,10 +22,10 @@ class MinebotStack(core.Stack):
 
         # create ECS services for the specified guilds
         for guild in self.load_config():
-            self.create_service(guild['name'], guild['id'], guild['ops'])
+            self.create_service(guild['name'], guild['id'], guild['ops'], guild['type'])
 
     #
-    # Open 
+    # Load configuration file
     #
     def load_config(self):
         if "MINEBOT_CONFIG" in os.environ:
@@ -87,10 +87,10 @@ class MinebotStack(core.Stack):
     #
     # Create a service for the guild with zero instances (we'll start it on demand)
     #
-    def create_service(self, name, guild, operators):
+    def create_service(self, name, guild, operators, type):
         service = ecs.FargateService(self, name + "-service", 
                                     cluster=self.cluster, 
-                                    task_definition=self.create_task(name, guild, operators),
+                                    task_definition=self.create_task(name, guild, operators, type),
                                     assign_public_ip=True,
                                     desired_count=0,
                                     security_group=self.minecraft_sg,
@@ -103,7 +103,7 @@ class MinebotStack(core.Stack):
     #
     # Create an ECS task for the specified guild
     #
-    def create_task(self, name, guild, operators):
+    def create_task(self, name, guild, operators, type):
         # define an ECS task
         volume = self.create_efs_volume(name)
         task = ecs.FargateTaskDefinition(self, name, 
@@ -112,13 +112,13 @@ class MinebotStack(core.Stack):
             volumes=[volume]
         )
         core.Tags.of(task).add("guild", guild)
-        self.create_container(name, task, operators, volume)
+        self.create_container(name, task, operators, volume, type)
         return task
 
     #
     # Create a container for our minecraft image with mount point for the specified volume
     #
-    def create_container(self, name, task, operators, volume):
+    def create_container(self, name, task, operators, volume, type="VANILLA"):
         container = task.add_container(
             name,
             image=ecs.ContainerImage.from_registry("itzg/minecraft-server"),
@@ -129,7 +129,8 @@ class MinebotStack(core.Stack):
                 "ALLOW_NETHER": "true",
                 "ENABLE_COMMAND_BLOCK": "true",
                 "MAX_TICK_TIME": "60000",
-                "MAX_MEMORY": "1600M"
+                "MAX_MEMORY": "1600M",
+                "TYPE": type
             },
             logging=ecs.LogDrivers.aws_logs(
                 stream_prefix=name,
