@@ -107,7 +107,7 @@ class MinebotStack(core.Stack):
         # define an ECS task
         volume = self.create_efs_volume(name)
         task = ecs.FargateTaskDefinition(self, name, 
-            cpu=2048, 
+            cpu=1024,
             memory_limit_mib=4096,
             volumes=[volume]
         )
